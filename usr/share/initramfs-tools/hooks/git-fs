@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source /usr/share/initramfs-tools/hook-functions
+echo "copying in $0"
+copy_exec /sbin/git-fs

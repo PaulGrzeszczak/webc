@@ -1,0 +1,90 @@
+#!/bin/sh
+tmpfs_size="10M"
+
+devtmpfs_old () {
+	echo "W: devtmpfs not available, falling back to tmpfs for /dev"
+	mount -t tmpfs -o size=$tmpfs_size,mode=0755 udev /dev
+	[ -e /dev/console ] || mknod -m 0600 /dev/console c 5 1
+	[ -e /dev/null ] || mknod /dev/null c 1 3
+}
+
+fs_init () {
+	root="$1"
+	for d in /dev /root /sys /proc /tmp /var /mnt /run; do
+		[ -d $root$d ] || mkdir $root$d
+	done
+	chmod 0755 $root/dev
+	chmod 0700 $root/root
+	mount -t sysfs -o nodev,noexec,nosuid sysfs $root/sys
+	mount -t proc -o nodev,noexec,nosuid proc $root/proc
+	[ -e /etc/udev/udev.conf ] && . /etc/udev/udev.conf
+	mount -t tmpfs  -o "noexec,nosuid,size=$tmpfs_size,mode=1777" tmpfs $root/tmp
+	mount -t tmpfs  -o "noexec,nosuid,size=$tmpfs_size,mode=0755" tmpfs $root/var
+	mount -t tmpfs  -o "noexec,nosuid,size=$tmpfs_size,mode=0755" tmpfs $root/run
+	mount -t devtmpfs -o "noexec,nosuid,mode=0755" udev $root/dev || devtmpfs_old
+	subdirs="/var/lock /var/run /run/initramfs /dev/pts /mnt/cd /mnt/flash /mnt/git /mnt/rw /mnt/root"
+	subdirs="${subdirs} /var/spool /var/log"
+	for d in $subdirs; do
+		test -d $root$d || mkdir $root$d
+	done
+	mount -t devpts -o "noexec,nosuid,gid=5,mode=0620" devpts $root/dev/pts || true
+}
+
+udev_root_rule() {
+  local udevroot="$1"
+  [ -e $udevroot/rules.d/61-dev-root-link.rules ] && return 0
+
+  eval $(udevadm info --export --export-prefix=ROOT_ --device-id-of-file=/ || true)
+  [ "$ROOT_MAJOR" -a "$ROOT_MINOR" ] || return 0
+
+  echo 'ACTION=="add|change", SUBSYSTEM=="block", ENV{MAJOR}=="'$ROOT_MAJOR'", ENV{MINOR}=="'$ROOT_MINOR'", SYMLINK+="root"' \
+    > $udevroot/root-link-rule
+  mv $udevroot/root-link-rule $udevroot/rules.d/61-dev-root-link.rules
+}
+
+udev_init () {
+	. /etc/udev/udev.conf
+	mkdir -p /etc/udev/rules.d/
+    udev_root_rule /etc/udev/
+	echo > /sys/kernel/uevent_helper
+	/lib/udev/create_static_nodes || true 
+	udevd --daemon --resolve-names=never
+	udevadm trigger --action=add --type=subsystems
+	udevadm trigger --action=add --type=devices
+	udevadm settle
+}
+
+root_init() {
+	mount -t iso9660 /dev/sr0 /mnt/cd
+	mount -t squashfs /mnt/cd/live/filesystem.squashfs /mnt/flash
+	mount -t tmpfs -o size=$tmpfs_size,mode=0755 tmpfs /mnt/rw
+	git-fs /mnt/flash /mnt/git
+	mount -t aufs -o br=/mnt/rw=rw:/mnt/git=ro none /mnt/root
+	echo "RW root mounted"
+	grep -qs debug /proc/cmdline && sh
+	umount /tmp
+	umount /var
+
+	fs_init /mnt/root
+
+	#find -xdev / -exec rm '{}' ';'
+	#( cd /mnt/git; mount --move . /; exec /sbin/init 2 )
+	cd /mnt/root
+	mount --move . /
+	grep -qs debug /proc/cmdline && sh
+	exec chroot . /sbin/init $(cat /proc/cmdline)
+	#exec run-init /mnt/git /sbin/init 2 || /bin/sh
+}
+
+module_init() {
+	mods="squashfs sd_mod sr_mod cdrom libata ata_piix loop"
+	for m in $mods; do
+		modprobe -q $m
+	done
+}
+
+fs_init /
+module_init
+udev_init
+udevadm settle
+root_init
