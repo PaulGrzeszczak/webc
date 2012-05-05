@@ -9,7 +9,7 @@ devtmpfs_old () {
 }
 
 fs_init () {
-	root="$1"
+	local root="$1"
 	for d in /dev /root /sys /proc /tmp /var /mnt /run; do
 		[ -d $root$d ] || mkdir $root$d
 	done
@@ -23,11 +23,18 @@ fs_init () {
 	mount -t tmpfs  -o "noexec,nosuid,size=$tmpfs_size,mode=0755" tmpfs $root/run
 	mount -t devtmpfs -o "noexec,nosuid,mode=0755" udev $root/dev || devtmpfs_old
 	subdirs="/var/lock /var/run /run/initramfs /dev/pts /mnt/cd /mnt/flash /mnt/git /mnt/rw /mnt/root"
-	subdirs="${subdirs} /var/spool /var/log"
+	subdirs="${subdirs} /var/spool /var/log /var/tmp /var/lib"
 	for d in $subdirs; do
 		test -d $root$d || mkdir $root$d
 	done
 	mount -t devpts -o "noexec,nosuid,gid=5,mode=0620" devpts $root/dev/pts || true
+}
+fs_clean() {
+	local root="$1"
+	for d in sys proc tmp var run; do
+		test -d $root/$d || continue
+		umount $root/$d
+	done
 }
 
 udev_root_rule() {
@@ -55,21 +62,42 @@ udev_init () {
 }
 
 root_init() {
-	# merge any changes in	
-	test -e /.git && git merge -s theirs
-	grep -qs debug /proc/cmdline && sh
-	exec chroot . /sbin/init $(cat /proc/cmdline)
+	mount -t ext3 /dev/sda1 /mnt/root
+	# merge any changes i, use ours until debian git supports theirs
+	( 
+	cd /mnt/root
+	test -e .git && git merge -s ours origin/master
+	)
+}
+
+udev_exit() {
+	killall udevd &>/dev/null
 }
 
 module_init() {
-	mods="squashfs sd_mod sr_mod cdrom libata ata_piix loop"
+	local mods="squashfs sd_mod sr_mod cdrom libata ata_piix loop"
 	for m in $mods; do
 		modprobe -q $m
 	done
 }
+opts_has() {
+	for i in $OPTS; do
+		[[ $i = $1 ]] && return 0
+	done
+	return 1
+}
 
 fs_init /
+OPTS=$(cat /proc/cmdline)
 module_init
 udev_init
 udevadm settle
 root_init
+udev_exit
+
+fs_clean /
+fs_init /mnt/root
+opts_has debug_initramfs && sh
+runlevel=2
+opts_has 1 && runlevel=1
+exec chroot /mnt/root /sbin/init $runlevel $opts 
