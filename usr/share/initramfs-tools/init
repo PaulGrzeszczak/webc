@@ -55,25 +55,10 @@ udev_init () {
 }
 
 root_init() {
-	mount -t iso9660 /dev/sr0 /mnt/cd
-	mount -t squashfs /mnt/cd/live/filesystem.squashfs /mnt/flash
-	mount -t tmpfs -o size=$tmpfs_size,mode=0755 tmpfs /mnt/rw
-	git-fs /mnt/flash /mnt/git
-	mount -t aufs -o br=/mnt/rw=rw:/mnt/git=ro none /mnt/root
-	echo "RW root mounted"
-	grep -qs debug /proc/cmdline && sh
-	umount /tmp
-	umount /var
-
-	fs_init /mnt/root
-
-	#find -xdev / -exec rm '{}' ';'
-	#( cd /mnt/git; mount --move . /; exec /sbin/init 2 )
-	cd /mnt/root
-	mount --move . /
+	# merge any changes in	
+	test -e /.git && git merge -s theirs
 	grep -qs debug /proc/cmdline && sh
 	exec chroot . /sbin/init $(cat /proc/cmdline)
-	#exec run-init /mnt/git /sbin/init 2 || /bin/sh
 }
 
 module_init() {

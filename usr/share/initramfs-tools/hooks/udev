@@ -19,13 +19,3 @@ done
 find /lib/udev -type f | while read file; do
 	copy_exec $file
 done
-
-mods="
-kernel/fs/aufs
-kernel/fs/squashfs 
-kernel/fs/fuse
-"
-
-for m in $mods; do
-	copy_modules_dir $m
-done

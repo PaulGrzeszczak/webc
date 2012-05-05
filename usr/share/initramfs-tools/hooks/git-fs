@@ -3,3 +3,14 @@
 source /usr/share/initramfs-tools/hook-functions
 echo "copying in $0"
 copy_exec /sbin/git-fs
+
+
+mods="
+kernel/fs/aufs
+kernel/fs/squashfs 
+kernel/fs/fuse
+"
+
+for m in $mods; do
+copy_modules_dir $m
+done
