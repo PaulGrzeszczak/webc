@@ -1,0 +1,6 @@
+#!/bin/bash
+echo "Applying Git fixups..."
+for f in /.git-fixups/*; do
+	chmod 755 $f
+	$f
+done
