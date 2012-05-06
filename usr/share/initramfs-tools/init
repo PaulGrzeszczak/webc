@@ -68,10 +68,10 @@ root_init() {
 	fi
 	mount -t ext3 /dev/sda1 /mnt/root
 	# merge any changes i, use ours until debian git supports theirs
-	( 
-	cd /mnt/root
-	test -e .git && git merge -s ours $ref
-	)
+	test -e /mnt/root/.git && { 
+		echo "Git merging $ref"
+		chroot /mnt/root git merge --no-edit -s ours $ref
+	}
 }
 
 udev_exit() {
