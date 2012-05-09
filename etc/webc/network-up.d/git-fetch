@@ -1,0 +1,9 @@
+#!/bin/bash
+source /etc/webc/webc.conf
+ref="origin/master"
+
+if cmdline_has git_branch; then
+	ref=$( cmdline_get git_branch )
+fi
+
+git fetch $ref
