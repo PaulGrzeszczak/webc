@@ -4,9 +4,6 @@ dash
 /usr/bin/firefox
 /usr/bin/firefox.real
 iceweasel
-/usr/sbin/flash-kernel
-/usr/sbin/flash-kernel.distrib
-:
 /usr/share/dict/words
 /usr/share/dict/words.pre-dictionaries-common
 dictionaries-common

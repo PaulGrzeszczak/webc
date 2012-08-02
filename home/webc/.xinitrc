@@ -154,7 +154,7 @@ do
 
 	mac=$( mac_address )
 
-	if test -x /usr/bin/iceweasel
+	if test -x /opt/firefox/firefox
 	then
 		if ! cmdline_has noclean
 		then
@@ -163,7 +163,7 @@ do
 			rm -rf $d
 		done
 		fi
-		iceweasel $(echo $homepage | sed "s,MACID,$mac,g")
+		/opt/firefox/firefox $(echo $homepage | sed "s,MACID,$mac,g")
 	fi
 
 done
