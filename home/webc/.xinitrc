@@ -2,7 +2,7 @@
 # Keep the browser running and clean between sessions in /home/webc
 # hendry@webconverger.com
 WEBCHOME=/home/webc
-source "/etc/webc/webc.conf"
+. "/etc/webc/webc.conf"
 
 logs xsession invoked
 exec &> /home/webc/.xerrors.debug
@@ -70,6 +70,12 @@ do
 		xkb=*)
 			koptions=$( /bin/busybox httpd -d ${x#xkb=} )
 			if setxkbmap $koptions; then logs "setxkbmap OK $koptions"; else logs "setxkbmap ERR $koptions"; fi
+			;;
+
+		# swarp=0,0 // move mouse pointer to top left of screen
+		swarp=*)
+			koptions=$( /bin/busybox httpd -d ${x#xkb=} )
+			swarp $(echo $koptions | sed 's/[^0-9]/ /g')
 			;;
 
 		# https://groups.google.com/forum/#!msg/webc-users/GlHh_SX17BM/GojceXVSazgJ
@@ -163,7 +169,13 @@ do
 			rm -rf $d
 		done
 		fi
-		/opt/firefox/firefox $(echo $homepage | sed "s,MACID,$mac,g")
-	fi
 
+		if cmdline_has noptirun || ! pidof bumblebeed
+		then
+			/opt/firefox/firefox $(echo $homepage | sed "s,MACID,$mac,g")
+		else
+			optirun /opt/firefox/firefox $(echo $homepage | sed "s,MACID,$mac,g")
+		fi
+
+	fi
 done

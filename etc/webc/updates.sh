@@ -1,5 +1,5 @@
 #!/bin/bash
-source "/etc/webc/webc.conf"
+. "/etc/webc/webc.conf"
 export HOME=/root
 gpg_opts="--status-file /dev/null --logger-file /dev/null --attribute-file /dev/null --batch --no-tty -q"
 
@@ -45,13 +45,14 @@ update_keys() {
 	gpg --refresh-keys --keyserver hkp://keys.gnupg.net &>/dev/null && touch /var/run/gpg-check
 }
 
-until test -p $updates_pipe # wait for xinitrc to trigger an update
+# wait for xinitrc to create pipe
+while read OUTPUT
 do
-    sleep 0.25 # wait for xinitrc to create pipe
-done
+    if echo $OUTPUT | grep -q "CREATE $(basename $updates_pipe)"; then break; fi
+done < <(inotifywait -qm -e create $(dirname $updates_pipe))
 
 # ensure $updates_url has latest $webc_id
-source "/etc/webc/webc.conf"
+. "/etc/webc/webc.conf"
 
 if cmdline_has updates
 then

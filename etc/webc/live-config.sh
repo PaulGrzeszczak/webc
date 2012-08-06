@@ -1,6 +1,6 @@
 #!/bin/bash
 # Setting up Webconverger system as root user
-source /etc/webc/webc.conf
+. /etc/webc/webc.conf
 
 cmdline_has debug && set -x
 
@@ -131,12 +131,13 @@ update_cmdline() {
 	touch /etc/webc/cmdline
 }
 
-until test -p $live_config_pipe # wait for xinitrc to trigger an update
+# wait for xinitrc to create pipe
+while read OUTPUT
 do
-    sleep 0.25 # wait for xinitrc to create pipe
-done
+    if echo $OUTPUT | grep -q "CREATE $(basename $live_config_pipe)"; then break; fi
+done < <(inotifywait -qm -e create $(dirname $live_config_pipe))
 
-source "/etc/webc/webc.conf"
+. "/etc/webc/webc.conf"
 cmdline_has noconfig || update_cmdline
 process_options
 
